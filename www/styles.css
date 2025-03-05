@@ -1,0 +1,85 @@
+/* CSS Styling for AHP app*/
+
+.center-title {
+    text-align: center;
+    max-width: 1200px;
+}
+
+.center-text {
+    text-align: center;
+    /* max-width: 600px; */
+}
+
+.warning-text {
+    border: 1px solid gray;
+    padding: 8px;
+    background-color: rgb(255, 255, 118);
+}
+
+.error-text {
+    padding: 8px;
+    color: red;
+    font-weight: bold;
+}
+
+.table {
+    margin: auto;
+    width: 350px;
+    display: table;
+    transform: translateX(-10px)
+}
+
+.table-row {
+    width: 350px;
+    display: table-row;
+    text-align: center;
+}
+
+.text-left {
+    display: table-cell;
+    text-align: left;
+    /* max-width: 100px; */
+}
+
+.text-right {
+    display: table-cell;
+    text-align: right;
+    /* max-width: 100px; */
+}
+
+.arrow {
+    font-size: 30px;
+    text-align: center;
+    max-width: 580px;
+    align-self: center;
+    transform: translateY(-50px);
+}
+
+.label-left .form-group {
+    display: flex;              /* Use flexbox for positioning children */
+    flex-direction: row;        /* Place children on a row (default) */
+    width: 75%;                /* Set width for container */
+    max-width: 520px;
+}
+
+.label-left label {
+    margin-right: 1rem;         /* Add spacing between label and slider */
+    align-self: center;         /* Vertical align in center of row */
+    text-align: right;
+    flex-basis: 80px;          /* Target width for label */
+}
+
+.label-right {
+    margin-left: -1rem;         /* Add spacing between label and slider */
+    align-self: top;         /* Vertical align in center of row */
+    text-align: left;
+    flex-basis: 80px;          /* Target width for label */
+}
+
+.irs {
+    display: flex;              /* Use flexbox for positioning children */
+    flex-direction: row;        /* Place children on a row (default) */
+    width: 100%;
+    max-width: 500px;
+    flex-basis: 500px;          /* Target width for slider */
+}
