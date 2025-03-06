@@ -1,2 +1,2 @@
 library(rsconnect)
-deployApp(appDir = "C:/GIS_Projects/ATUR/R/shiny/ATUR-PWC-shiny/ATUR-PWC")
+deployApp(appDir = 'C:/Users/travisz09/Documents/My code/AHP App/AHP-app')
