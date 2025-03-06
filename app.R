@@ -15,6 +15,12 @@ library(shiny)
 library(shinyWidgets)
 library(shinyjs)
 
+myjs <- "
+$(document).on('change', '.dynamicSI input', function(){
+  Shiny.setInputValue('lastSelectId', this.id, {priority: 'event'});
+});
+"
+
 ui <- fluidPage(
   lang = 'en',
   theme = bslib::bs_theme(bootswatch = 'sandstone'),  # base styling theme
@@ -24,6 +30,7 @@ ui <- fluidPage(
   extendShinyjs(text = "shinyjs.refresh_page = function() { location.reload(); }", functions = "refresh_page"),
   # Page head
   tags$head(
+    tags$script(HTML(myjs)),
     # Link to css
     tags$link(
       rel = 'stylesheet', 
@@ -102,7 +109,7 @@ server <- function(input, output, session) {
   # vars for naming sliders
   var1 <- reactiveVal()
   var2 <- reactiveVal()
-  sliderCount <- reactiveVal(1)
+  # sliderCount <- reactiveVal(1)
 
   # Add Variable Function
   addVar <- function(count) {
@@ -122,85 +129,92 @@ server <- function(input, output, session) {
   # Generate sliders function
   generateSliders <- function(vars) {
     for(i in c(1:length(vars[-1]))) {
-      var1(vars[i])
+      var1 = vars[i]
       # print(var1())
       for(j in c(i:length(vars[-1]))) {
-        var2(vars[j+1])
+        var2 = vars[j+1]
         # print(var2())
         # print(paste(var1(), var2(), sep = '_'))
         
         insertUI(selector = '#sliders', 
           ui = div(class = 'label-left',
             fluidRow(
-              sliderInput(inputId =  paste0("slide", sliderCount()),
-                var1(),  # Slider label (left label)
+              sliderInput(inputId =  paste(var1, var2, sep = '_'),
+                label = var1,  # Slider label (left label)
                 min = -9,
                 max = 9,
                 value = 0,
                 step = 1,
               ),  # end slider 
               # Right label
-              div(class = 'label-right', var2())
+              div(class = 'label-right', var2)
             )  # end fluidRow
           )  # end column
         )
-        print(paste0("slide", sliderCount()))
-        sliderCount(sliderCount()+1)
       }
       
     }  
   }
 
-  # Generate Saaty's matrix statistics
-  generateResults <- function(vars) {
-    # Results Table
-    # Scale table size to match length of variables list (square)
-    resultsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
-    colnames(resultsTable) <- vars
-    # Results will be filled in below
+  # react to changes in dynamically generated selectInput's
+  observeEvent(input$lastSelectId, {
 
-    # Fill in initial table data from default values
-    rowIndex <- 1
-    tableData <- c()
-    sliderCount(1)
-    # Iterate through vars list twice (nested)
-    for(i in c(1:length(vars))) {
-      var1(vars[i])
-      for(j in c(1:length(vars)))  {
-        var2(vars[j])
+    cat("lastSelectId:", input$lastSelectId, "\n")
+    cat("Selection:", input[[input$lastSelectId]], "\n\n")
+
+  })  
+
+
+  # # Generate Saaty's matrix statistics
+  # generateResults <- function(vars) {
+  #   # Results Table
+  #   # Scale table size to match length of variables list (square)
+  #   resultsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
+  #   colnames(resultsTable) <- vars
+  #   # Results will be filled in below
+
+  #   # Fill in initial table data from default values
+  #   rowIndex <- 1
+  #   tableData <- c()
+  #   sliderCount(1)
+  #   # Iterate through vars list twice (nested)
+  #   for(i in c(1:length(vars))) {
+  #     var1(vars[i])
+  #     for(j in c(1:length(vars)))  {
+  #       var2(vars[j])
         
-        print(paste(var1(), var2(), sep = '_'))
+  #       print(paste(var1(), var2(), sep = '_'))
 
-        if (var1() == var2()) {
-          # if var1 = var2, then data = 1 (i.e. table diagonal)
-          dataPoint <- "1"
-        } else {
-          # if var1 != var2, then check sliders for value
+  #       if (var1() == var2()) {
+  #         # if var1 = var2, then data = 1 (i.e. table diagonal)
+  #         dataPoint <- "1"
+  #       } else {
+  #         # if var1 != var2, then check sliders for value
           
-          print(paste0("slide", sliderCount()))
-          dataPoint <- input[[paste0("slide", sliderCount())]]
-          sliderCount(sliderCount() + 1)
-        }
-        # print(paste(var1(), var2(), sep = '_'))
-        print(dataPoint)
-      }  # end lapply (j)
+  #         print(paste0("slide", sliderCount()))
+  #         dataPoint <- input[[paste0("slide", sliderCount())]]
+  #         sliderCount(sliderCount() + 1)
+  #       }
+  #       # print(paste(var1(), var2(), sep = '_'))
+  #       print(dataPoint)
+  #     }  # end lapply (j)
       
-    }  # end laaply (i)
+  #   }  # end laaply (i)
     
-      # # Insert table Data into resultsTable
-      # rowEnd <- rowIndex * length(vars)
-      # rowStart <- rowEnd - length(vars) + 1
-      # rowData <- tableData[rowStart:rowEnd]
-      # rowDf <- as.data.frame.list(rowData)
-      # row.names(rowDf) <- var1
-      # names(rowDf) <- vars
-      # # Append data to resultsTable
-      # resultsTable <- rbind(resultsTable, rowDf)
+  #     # # Insert table Data into resultsTable
+  #     # rowEnd <- rowIndex * length(vars)
+  #     # rowStart <- rowEnd - length(vars) + 1
+  #     # rowData <- tableData[rowStart:rowEnd]
+  #     # rowDf <- as.data.frame.list(rowData)
+  #     # row.names(rowDf) <- var1
+  #     # names(rowDf) <- vars
+  #     # # Append data to resultsTable
+  #     # resultsTable <- rbind(resultsTable, rowDf)
       
-    #   rowIndex <- rowIndex + 1  # increment index
-    # }  # end for var 1
-    # # return(resultsTable)
-  }  # end generateResults
+  #   #   rowIndex <- rowIndex + 1  # increment index
+  #   # }  # end for var 1
+  #   # # return(resultsTable)
+  # }  # end generateResults
 
   # Render sliders tab function
   renderTabs <- function(vars) {
@@ -252,10 +266,10 @@ server <- function(input, output, session) {
             div(class = 'arrow', '\U21A4|\U21A6'),
 
             # Dynamic UI created on the fly by server
-            tags$div(id = 'sliders', class = 'Sliders'),
+            tags$div(id = 'sliders', class = 'dynamicSI'),
             
             generateSliders(vars),
-            generateResults(vars),
+            # generateResults(vars),
 
             # div(class = 'center-text',
             #   h2('Statistics'),
