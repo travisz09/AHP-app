@@ -14,10 +14,11 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyjs)
+library(bslib)
 
 myjs <- "
 $(document).on('change', '.dynamicSI input', function(){
-  Shiny.setInputValue('lastSelectId', this.id, {priority: 'event'});
+  Shiny.onInputChange('lastSelectId', this.id, {priority: 'event'});
 });
 "
 
@@ -49,57 +50,125 @@ ui <- fluidPage(
   ),  # end titlePanel
 
   tabsetPanel(
-      type = 'tabs',
-      id = 'tabs',
-      tabPanel(title = 'Home',
-        # Header
-        div(class = 'center-text',
-          h3('Component Variables')
-        ),
-        div(
-          h6('Add the constituent factors of your decision here.')
-        ), 
+    type = 'tabs',
+    id = 'tabs',
+    tabPanel(title = 'Home',
+      # Header
+      div(class = 'center-text',
+        h3('Component Variables')
+      ),
+      div(
+        h6('Add the constituent factors of your decision here.')
+      ), 
 
-        # Initial text input (minimum 2 variables)
-        textInput(inputId = "var1", 
-          label = 'Variable 1', 
-          value = "", 
-          width = NULL, 
-          placeholder = 'e.g. Distance'
-        ),
-        textInput(inputId = "var2", 
-          label = 'Variable 2', 
-          value = "", 
-          width = NULL, 
-          placeholder = 'e.g. Time'
-        ),
+      # Initial text input (minimum 2 variables)
+      textInput(inputId = "var1", 
+        label = 'Variable 1', 
+        value = "", 
+        width = NULL, 
+        placeholder = 'e.g. Distance'
+      ),
+      textInput(inputId = "var2", 
+        label = 'Variable 2', 
+        value = "", 
+        width = NULL, 
+        placeholder = 'e.g. Time'
+      ),
 
-        div(
-          id = 'vars_ui'
-        ),
+      div(
+        id = 'vars_ui'
+      ),
 
-        # Action button to generate more rows
-        actionButton(inputId = 'addRow',
-          label = 'Add Variable',
-          class = "btn-primary"
-        ),
-        # Action Button to reset
-        actionButton(inputId = 'reset',
-          label = 'Reset',
-          class = "btn-danger"
-        ),
-        # Action Button to submit vars for pwc
-        actionButton(inputId = 'submitVars',
-          label = 'Submit',
-          class = 'btn-success'
-        ),
+      # Action button to generate more rows
+      actionButton(inputId = 'addRow',
+        label = 'Add Variable',
+        class = "btn-primary"
+      ),
+      # Action Button to reset
+      actionButton(inputId = 'reset',
+        label = 'Reset',
+        class = "btn-danger"
+      ),
+      # Action Button to submit vars for pwc
+      actionButton(inputId = 'submitVars',
+        label = 'Submit',
+        class = 'btn-success'
+      ),
 
-        # User messages
-        uiOutput(outputId = 'warning2')
-      ),  # end tabPanel (Home)
-      
-    )  # end tabs
+      # User messages
+      uiOutput(outputId = 'warning2')
+    ),  # end tabPanel (Home)
 
+    tabPanel(title = "Sliders",
+      # Tab Header
+      div(class = 'center-text',
+        h3('Variable Pair Wise Comparison')
+      ),
+      div(
+        h6('Adjust the relative importance of each variable pair.')
+      ),
+      # Sidebar layout
+      sidebarLayout(
+        sidebarPanel(id = 'Sidebar',
+          # Sidebar Header
+          div(class = 'center-text',
+            h2('Survey Explanation')
+          ),
+          hr(),  # line break
+          # Sidebar content
+          div(class = 'center-text',
+            # Saaty's absolute numbers figure, with title and caption
+            strong("Saaty's Scale of Absolute Numbers")
+          ),
+          img(src='SaatyScale.png', width = '100%'),
+          em('Image from Aloui et al. (2024) Fig. A1, and may be subject to copyright. Please do not redistribute!'),
+          hr(),  # line break
+          # User instructions (HTML)
+          HTML({
+            "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
+            <br><br>
+            Special Values:<br>
+            &ensp;<b>1 = -1 = Variables of equal importance.</b><br>
+            &ensp;<b>0 = No opinion/NA</b>
+            <br><br>
+            When finished, view and export your results in the next tab."
+          }),
+        ),  # end sidebarPanel
+
+        # Main panel
+        mainPanel(
+          # Button to control sidebar behavior
+          actionButton("showSidebar", "<<<"),
+          # Main Panel Header
+          div(class = 'center-text',
+            h2('Relative Importance'),
+            # Stylized subheading
+            # Modified table
+            div(class = 'table',
+              div(class = 'table-row',
+                # Table text
+                div(class = 'text-left', HTML('Variable A<br>more important')),
+                div(class = 'text-right', HTML('Variable B<br>more important')),
+              ),
+            ),
+          ),
+          # Hacked text arrows
+          # See styles.css .arrow{} for div possitioning etc.
+          div(class = 'arrow', '\U21A4|\U21A6'),
+
+          # Divs for dynamically rendered UI
+          tags$div(id = 'sliders', class = 'dynamicSI'),
+          tags$div(id = 'resultsDiv', 
+            class = 'center-text',
+            h4('Results Table'),  # Table Header
+            tableOutput('resultsTable')
+          ),
+          htmlOutput('userMessage')
+            
+        )
+      )
+    )  
+  )  # end tabs
 )  # end ui
 
 server <- function(input, output, session) {
@@ -109,25 +178,138 @@ server <- function(input, output, session) {
   # vars for naming sliders
   var1 <- reactiveVal()
   var2 <- reactiveVal()
-  # sliderCount <- reactiveVal(1)
+  sliders <- reactiveVal(list())
+  # reactive value of selected slider
+  val <- reactiveVal()
+  # Saaty's table (df)
+  saatysTable <- data.frame()
 
-  # Add Variable Function
+  # Functions ------------------------------
+  # Add Variable Function 
   addVar <- function(count) {
+    # Add a user-input variable to the list of component variables.
     placeholderText = c('e.g. Distance', 'e.g. Time', 'e.g. Scenery')
-    textInput(inputId = paste0("var", varCount()), 
-          label = paste0('Variable ', varCount()),
+    textInput(inputId = paste0("var", count), 
+          label = paste0('Variable ', count),
           value = "", 
           width = NULL, 
-          placeholder = placeholderText[varCount()]
+          placeholder = placeholderText[count]
         )
   }
 
+  # Clear Warnings Function
   clearWarnings <- function(num) {
+    # Clear user warnings on event.
     output[[paste0('warning', num)]] <- renderUI({return(NULL)})
   }
 
-  # Generate sliders function
+  # Calculate column totals (Saaty's matrix)
+  calcTotals <- function(table, numeric = F) {
+    # Get vars from table
+    vars <- names(table)
+    # Reset table totals (if applicable)
+    if('Totals' %in% row.names(table)) {
+      table <- table[!(row.names(table) %in% c('Totals')), ]
+      # print(T)
+    }
+    totals <- c()
+    for (var in vars) {
+      # Evaluate text as numeric fraction
+      vals = sapply(table[[var]], function(x) eval(parse(text = as.character(x))))
+      total = sum(vals, na.rm = T)
+      totals = c(totals, total)
+    }
+    # Determine if values should be returned as numeric or as character
+    if (numeric == F) {
+      totals <- as.data.frame.list(as.character(round(totals, 2)))
+    } else {
+      totals <- as.data.frame.list(round(totals, 2))
+    }
+
+    # Update names of totals df
+    names(totals) <- vars
+    row.names(totals) <- 'Totals'
+    # bind totals to bottom of table
+    table <-rbind(table, totals)
+
+    return(table)
+  }
+
+  # Calculate eigenvectors
+  calcEigen <- function(table) {
+    # Get list of vars from table
+    vars = names(table)
+    # Save column totals
+    totals <- sapply(table['Totals', ], function(x) eval(parse(text = as.character(x))))
+    # Drop totals from table
+    eigenTable <- table[!(row.names(table) %in% c('Totals')), ]
+
+    for (name in names(totals)) {
+      total = as.numeric(totals[name])  # get named total value
+      # Parse table column as numeric
+      vect <- sapply(eigenTable[ , name], function(x) eval(parse(text = as.character(x))))
+      eigenvect <- vect / total  # calculate eigenvector
+      eigenTable[ , name] <- eigenvect  # update eigenTable
+    }
+
+    # Calculate Consistency Index
+    ciTable <- as.data.frame(list(
+      Totals = totals,
+      Eigen = rowSums(eigenTable, na.rm = T)/length(totals),
+      Eigen_Val = (totals * (rowSums(eigenTable, na.rm = T)/length(totals)))
+    ))
+    principalEigen <- sum(ciTable$Eigen_Val, na.rm = T)
+    
+    # Calculate normalized eigenvector totals
+    eigenTable <- calcTotals(eigenTable, numeric = T)
+    # eigenvectors should sum to 1
+    # Add eigenvector values (means) to eigenTable 
+    eigenTable$Eigen_Value <- rowSums(eigenTable, na.rm = T)/length(totals)
+
+    # Saaty's Random Index DF
+    saatyRi <- as.data.frame(list(
+      Order = c(2:30),
+      RI = c(
+        0, 0.52, 0.89, 1.12, 1.26, 1.36, 1.41, 1.46, 1.49,  # 2-10
+        1.52, 1.54, 1.56, 1.58, 1.59, 1.5943, 1.6064, 1.6133, 1.6207, 1.6292,  # 11-20
+        1.6358, 1.6403, 1.6462, 1.6497, 1.6556, 1.6587, 1.6631, 1.667, 1.6693, 1.6724  #21-30
+      )
+    ))
+
+    # Get RI from df based on number of input vars
+    # If input vars > 30, use max ri (limit ~1.7)
+    if(length(totals) > 30) {
+      ri <- max(saatyRi$RI)
+    } else {
+      # Get ri from appropriate position in df
+      ri <- saatyRi[saatyRi$Order == length(totals), ]$RI
+    }
+    
+    # Calculate consistency ratio
+    ci = (principalEigen - length(totals))/(length(totals) - 1)
+    cr = ci / ri
+
+    # Use CR to determine appropriate user message
+    if (principalEigen < length(totals)) {
+      statisticsText <- '<p style="color:red">The principal eigen value of your data table is less than the number of inputs. This is commonly the result of setting values to 0. Consider updating any variables set to 0 to improve internal consistency.</p>'
+    } else if (cr >= 0.1) {
+      statisticsText <- '<p style="color:red">As per Saaty (1980), your “consistency ratio” is unusually high. This indicates that some of your variable comparisons may not be internally consistent. Consider adjusting the relative importance of one or more variables.</p>'
+    } else {
+      statisticsText <- paste('<p style="color:green">Your variable values appear to be internally consistent! \U1F389</p>')
+    }
+
+    output$userMessage <- renderText(statisticsText)
+
+  }
+
+  # Generate Sliders Function
   generateSliders <- function(vars) {
+    # Generate x number of pwc sliders based on y user-generated inputs
+    # x = (y * (y-1))/2
+      # where:
+        # x = number of sliders
+        # y = number of user-generated inputs
+        # and variable order does not matter
     for(i in c(1:length(vars[-1]))) {
       var1 = vars[i]
       # print(var1())
@@ -151,143 +333,145 @@ server <- function(input, output, session) {
             )  # end fluidRow
           )  # end column
         )
+        # Add list of slider ids to reactive values
+        sliders(c(sliders(), paste(var1, var2, sep = '_')))
       }
-      
     }  
   }
 
-  # react to changes in dynamically generated selectInput's
-  observeEvent(input$lastSelectId, {
+  # Genearte Listeners
+  generateListeners <- reactive({
+    lapply(sliders(), function (s) {
+      observeEvent(input[[s]], {
+        val(input[[s]])
+        # print(val())
+        updateResults(saatysTable, s, val())
+      })
+    }) 
+  })
 
-    cat("lastSelectId:", input$lastSelectId, "\n")
-    cat("Selection:", input[[input$lastSelectId]], "\n\n")
+  # Generate (initial) Saaty's matrix statistics
+  generateResults <- function(vars) {
+    # Results Table
+    # Scale table size to match length of variables list (square)
+    resultsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
+    colnames(resultsTable) <- vars
+    # Results will be filled in below
+
+    # Fill in initial table data from default values
+    rowIndex <- 1
+    tableData <- c()
+    # Iterate through varAbbr list twice (nested)
+    for (var1 in vars) {
+      for (var2 in vars) {
+        # Get initial table value for variable pairs
+        if (var1 == var2) {
+          # if var1 = var2, then data = 1 (i.e. table diagonal)
+          dataPoint <- "1"
+        } else {
+          # All slider values initially set to 0
+          dataPoint <- '0'
+        }
+        tableData <- c(tableData, dataPoint)  # append tableData list
+      }
+
+      # Insert table Data into resultsTable
+      # Calculate start and end values for data matrix 'row' within list of data
+      rowEnd <- rowIndex * length(vars)
+      rowStart <- rowEnd - length(vars) + 1
+      # Slice list to get subset data
+      rowData <- tableData[rowStart:rowEnd]
+      # Convert to 1-row df for rbind()
+      rowDf <- as.data.frame.list(rowData)
+      # Set df names
+      row.names(rowDf) <- var1
+      names(rowDf) <- vars
+      # Bind row df to results df using row bind
+      resultsTable <- rbind(resultsTable, rowDf)
+
+      rowIndex <- rowIndex + 1  # increment index
+    }
+
+    # Calculate column totals for table
+    resultsTable <- calcTotals(resultsTable)
+    
+    return(resultsTable)
+    
+  }  # end generateResults
+
+  # Beautify table for rendered output
+  printTable <- function(table) {
+    # Abbreviate vars for table output
+    vars = lapply(names(table), substr, start = 1, stop = 4)
+    
+    colnames(table) <- vars
+    rownames(table) <- c(vars, 'Totals')
+    
+    output$resultsTable <- renderTable(table, rownames = T)
+    
+  }
+
+  # Update Saaty's matrix
+  updateResults <- function(table, id, value) {
+    # Get vars from last selected id
+    vars <- id
+    var1 <- strsplit(vars, split = '_')[[1]][1]  # Row name
+    var2 <- strsplit(vars, split = '_')[[1]][2]  # Col name
+    # Get column and row index matching vars
+    i1 <- which(names(table) == var1)
+    i2 <- which(row.names(table) == var2)
+    # Get inverse of value
+    inverse <- paste0('1/', abs(value))
+
+    # Determine sign of value
+    if(value == 0) {
+      # Update table values with 0s
+      table[i1, i2] <- 0
+      table[i2, i1] <- 0
+    } else if(abs(value) == 1) {
+      # Update table values with 1s
+      table[i1, i2] <- 1
+      table[i2, i1] <- 1
+    } else if(value > 1) {
+      # Update table values at specified index
+      table[i1, i2] <- value
+      table[i2, i1] <- inverse
+    } else {
+      # Reverse the order of column and row indices
+      # Update table values at specified index
+      table[i1, i2] <- inverse
+      table[i2, i1] <- abs(value)  # Positive value
+    }
+
+    saatysTable <<- calcTotals(table)
+
+    printTable(saatysTable)
+    calcEigen(saatysTable)
+    
+    # return(table)
+  }
+
+  
+  # Observers/Listeners
+  # react to changes in dynamically generated slider Input's
+  observeEvent(input$lastSelectId, {
+    
+    # Print statements for debugging
+    # cat("lastSelectId:", input$lastSelectId, "\n")
+    # cat("Selection:", input[[input$lastSelectId]], "\n\n")
+    
+    # # Update Saaty's table
+    # saatysTable <- updateResults(saatysTable, id, value)
+    # # UpdateUI
+    # output$resultsTable <- renderTable(
+    #   saatysTable,
+    #   rownames = T
+    # )
+    # output$resultsMessage <- renderUI({
+    #   HTML(calcEigen(table))
+    # })
 
   })  
-
-
-  # # Generate Saaty's matrix statistics
-  # generateResults <- function(vars) {
-  #   # Results Table
-  #   # Scale table size to match length of variables list (square)
-  #   resultsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
-  #   colnames(resultsTable) <- vars
-  #   # Results will be filled in below
-
-  #   # Fill in initial table data from default values
-  #   rowIndex <- 1
-  #   tableData <- c()
-  #   sliderCount(1)
-  #   # Iterate through vars list twice (nested)
-  #   for(i in c(1:length(vars))) {
-  #     var1(vars[i])
-  #     for(j in c(1:length(vars)))  {
-  #       var2(vars[j])
-        
-  #       print(paste(var1(), var2(), sep = '_'))
-
-  #       if (var1() == var2()) {
-  #         # if var1 = var2, then data = 1 (i.e. table diagonal)
-  #         dataPoint <- "1"
-  #       } else {
-  #         # if var1 != var2, then check sliders for value
-          
-  #         print(paste0("slide", sliderCount()))
-  #         dataPoint <- input[[paste0("slide", sliderCount())]]
-  #         sliderCount(sliderCount() + 1)
-  #       }
-  #       # print(paste(var1(), var2(), sep = '_'))
-  #       print(dataPoint)
-  #     }  # end lapply (j)
-      
-  #   }  # end laaply (i)
-    
-  #     # # Insert table Data into resultsTable
-  #     # rowEnd <- rowIndex * length(vars)
-  #     # rowStart <- rowEnd - length(vars) + 1
-  #     # rowData <- tableData[rowStart:rowEnd]
-  #     # rowDf <- as.data.frame.list(rowData)
-  #     # row.names(rowDf) <- var1
-  #     # names(rowDf) <- vars
-  #     # # Append data to resultsTable
-  #     # resultsTable <- rbind(resultsTable, rowDf)
-      
-  #   #   rowIndex <- rowIndex + 1  # increment index
-  #   # }  # end for var 1
-  #   # # return(resultsTable)
-  # }  # end generateResults
-
-  # Render sliders tab function
-  renderTabs <- function(vars) {
-    insertTab(inputId = 'tabs',
-      tabPanel('Sliders',
-        # Header
-        div(class = 'center-text',
-          h3('Variable Pair Wise Comparison')
-        ),
-        div(
-          h6('Adjust the relative importance of each variable pair.')
-        ),
-        # Sidebar
-        sidebarLayout(
-          sidebarPanel(id = 'Sidebar',
-            div(class = 'center-text',
-              h2('Survey Explanation')
-            ),
-            hr(),  # line break
-            div(class = 'center-text',
-              strong("Saaty's Scale of Absolute Numbers")),
-              img(src='SaatyScale.png', width = '100%'),
-              em('Image from Aloui et al. (2024) Fig. A1, and may be subject to copyright. Please do not redistribute!'),
-              hr(),  # line break
-              HTML({
-                "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
-                <br><br>
-                Special Values:<br>
-                &ensp;<b>1 = -1 = Variables of equal importance.</b><br>
-                &ensp;<b>0 = No opinion/NA</b>
-                <br><br>
-                When finished, view and export your results in the next tab."
-              }),
-          ),  # end sidebarPanel
-
-          mainPanel(# Header section (above tab set panel)
-            # Buttons to control sidebar behavior
-            actionButton("showSidebar", "<<<"),
-            div(class = 'center-text',
-              h2('Relative Importance'),
-                    
-              div(class = 'table',
-                div(class = 'table-row',
-                  div(class = 'text-left', HTML('Variable A<br>more important')),
-                  div(class = 'text-right', HTML('Variable B<br>more important')),
-                ),
-              ),
-            ),
-            div(class = 'arrow', '\U21A4|\U21A6'),
-
-            # Dynamic UI created on the fly by server
-            tags$div(id = 'sliders', class = 'dynamicSI'),
-            
-            generateSliders(vars),
-            # generateResults(vars),
-
-            # div(class = 'center-text',
-            #   h2('Statistics'),
-            #   htmlOutput('floodResultsTable'),
-            #   htmlOutput('floodStatisticsText'),
-            # ),
-            # fluidRow(
-            #   column(10,
-            #     htmlOutput('floodUserMessage')
-            #   )
-            # )
-          )
-
-        )
-
-      )
-    )
-  }
 
   # Add Variable Button
   observeEvent(input$addRow, {
@@ -327,7 +511,7 @@ server <- function(input, output, session) {
         vars = c(vars, var)
       }
     }
-    
+
     if(length(vars) < 2) {
       output$warning2 <- renderUI({
         div(id = 'message2', 
@@ -336,10 +520,17 @@ server <- function(input, output, session) {
         )
       })
     } else {
-      renderTabs(vars)
+      # Calculate initial Saaty's table
+      saatysTable <<- generateResults(vars)
+      # renderTabs(vars, saatysTable)
+      # Generate and insert sliders into ui
+      generateSliders(vars)
+      printTable(saatysTable)
+      calcEigen(saatysTable)
       updateTabsetPanel(session, "tabs", 'Sliders')
       disable('submitVars')
       disable('addRow')
+      generateListeners()
     }
   })
 
@@ -370,3 +561,97 @@ server <- function(input, output, session) {
 
 # deploy app
 shinyApp(ui = ui, server = server)
+
+
+
+# GRAVEYARD
+# # Render sliders tab function
+  # renderTabs <- function(vars, table) {
+  #   # Create Sliders tab on the fly based on user inputs
+  #   # Create new tab panel named 'Sliders'
+  #   insertTab(inputId = 'tabs',
+  #     tabPanel('Sliders',
+  #       # Tab Header
+  #       div(class = 'center-text',
+  #         h3('Variable Pair Wise Comparison')
+  #       ),
+  #       div(
+  #         h6('Adjust the relative importance of each variable pair.')
+  #       ),
+  #       # Sidebar layout
+  #       sidebarLayout(
+  #         sidebarPanel(id = 'Sidebar',
+  #           # Sidebar Header
+  #           div(class = 'center-text',
+  #             h2('Survey Explanation')
+  #           ),
+  #           hr(),  # line break
+  #           # Sidebar content
+  #           div(class = 'center-text',
+  #             # Saaty's absolute numbers figure, with title and caption
+  #             strong("Saaty's Scale of Absolute Numbers")),
+  #             img(src='SaatyScale.png', width = '100%'),
+  #             em('Image from Aloui et al. (2024) Fig. A1, and may be subject to copyright. Please do not redistribute!'),
+  #             hr(),  # line break
+  #             # User instructions (HTML)
+  #             HTML({
+  #               "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
+  #               <br><br>
+  #               Special Values:<br>
+  #               &ensp;<b>1 = -1 = Variables of equal importance.</b><br>
+  #               &ensp;<b>0 = No opinion/NA</b>
+  #               <br><br>
+  #               When finished, view and export your results in the next tab."
+  #             }),
+  #         ),  # end sidebarPanel
+
+  #         # Main panel
+  #         mainPanel(
+  #           # Button to control sidebar behavior
+  #           actionButton("showSidebar", "<<<"),
+  #           # Main Panel Header
+  #           div(class = 'center-text',
+  #             h2('Relative Importance'),
+  #             # Stylized subheading
+  #             # Modified table
+  #             div(class = 'table',
+  #               div(class = 'table-row',
+  #                 # Table text
+  #                 div(class = 'text-left', HTML('Variable A<br>more important')),
+  #                 div(class = 'text-right', HTML('Variable B<br>more important')),
+  #               ),
+  #             ),
+  #           ),
+  #           # Hacked text arrows
+  #           # See styles.css .arrow{} for div possitioning etc.
+  #           div(class = 'arrow', '\U21A4|\U21A6'),
+
+  #           # Divs for dynamically rendered UI
+  #           tags$div(id = 'sliders', class = 'dynamicSI'),
+  #           tags$div(id = 'resultsDiv', 
+  #             class = 'center-text',
+  #             h4('Results Table'),  # Table Header
+  #           ),
+             
+  #           # Dynamic UI created on the fly by server
+  #           # Generate and insert sliders into ui
+  #           generateSliders(vars),
+  #           # Insert results into UI
+  #           # output$resultsTable <- renderTable(
+  #           #   table,
+  #           #   rownames = T
+  #           # ),
+  #           insertUI(selector = '#resultsDiv',
+  #             ui = tableOutput('resultsTable')
+  #           ),
+  #           # Insert user message into UI
+  #           output$resultsMessage <- renderUI({
+  #             HTML(calcEigen(table))
+  #           }),
+            
+
+  #         )
+  #       )
+  #     )
+  #   )
+  # }
