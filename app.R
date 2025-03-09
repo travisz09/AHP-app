@@ -14,7 +14,9 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyjs)
-library(bslib)
+# library(bslib)
+library(dplyr)
+library(tibble)
 
 myjs <- "
 $(document).on('change', '.dynamicSI input', function(){
@@ -158,13 +160,17 @@ ui <- fluidPage(
 
           # Divs for dynamically rendered UI
           tags$div(id = 'sliders', class = 'dynamicSI'),
+          tags$div(id = 'statisticsDiv', 
+            class = 'center-text',
+            h4('Statistics Table'),  # Table Header
+            tableOutput('statisticsTable')
+          ),
+          htmlOutput('userMessage'),
           tags$div(id = 'resultsDiv', 
             class = 'center-text',
-            h4('Results Table'),  # Table Header
+            h4('Results'),  # Table Header
             tableOutput('resultsTable')
           ),
-          htmlOutput('userMessage')
-            
         )
       )
     )  
@@ -183,6 +189,8 @@ server <- function(input, output, session) {
   val <- reactiveVal()
   # Saaty's table (df)
   saatysTable <- data.frame()
+  # # Results table (df)
+  # resultsTable <- data.frame()
 
   # Functions ------------------------------
   # Add Variable Function 
@@ -252,6 +260,18 @@ server <- function(input, output, session) {
       eigenTable[ , name] <- eigenvect  # update eigenTable
     }
 
+    # Calculate weights as row wise means of eigen table
+    weights <- rowMeans(eigenTable, na.rm = T)
+    totalWeights <- sum(weights)
+    resultsTable <- data.frame(
+      Variable = c(vars, 'Total'),
+      Weight = c(weights, totalWeights)
+    )
+    saatysTable <- saatysTable%>%
+      rownames_to_column('Variable')%>%
+      left_join(resultsTable)%>%
+      column_to_rownames('Variable')
+
     # Calculate Consistency Index
     ciTable <- as.data.frame(list(
       Totals = totals,
@@ -288,17 +308,20 @@ server <- function(input, output, session) {
     # Calculate consistency ratio
     ci = (principalEigen - length(totals))/(length(totals) - 1)
     cr = ci / ri
-
+    
     # Use CR to determine appropriate user message
-    if (principalEigen < length(totals)) {
+    if (length(sliders()) == 1) {
+      statisticsText <- '<p></p>'
+    } else if (principalEigen < length(totals)) {
       statisticsText <- '<p style="color:red">The principal eigen value of your data table is less than the number of inputs. This is commonly the result of setting values to 0. Consider updating any variables set to 0 to improve internal consistency.</p>'
     } else if (cr >= 0.1) {
-      statisticsText <- '<p style="color:red">As per Saaty (1980), your “consistency ratio” is unusually high. This indicates that some of your variable comparisons may not be internally consistent. Consider adjusting the relative importance of one or more variables.</p>'
+      statisticsText <- '<p style="color:red">Your consistency ratio is unusually high. This indicates that some of your variable comparisons may not be internally consistent. Consider adjusting the relative importance of one or more variables.</p>'
     } else {
       statisticsText <- paste('<p style="color:green">Your variable values appear to be internally consistent! \U1F389</p>')
     }
 
     output$userMessage <- renderText(statisticsText)
+    output$resultsTable <- renderTable(resultsTable)
 
   }
 
@@ -345,17 +368,17 @@ server <- function(input, output, session) {
       observeEvent(input[[s]], {
         val(input[[s]])
         # print(val())
-        updateResults(saatysTable, s, val())
+        updateSaatys(saatysTable, s, val())
       })
     }) 
   })
 
   # Generate (initial) Saaty's matrix statistics
-  generateResults <- function(vars) {
+  generateSaatys <- function(vars) {
     # Results Table
     # Scale table size to match length of variables list (square)
-    resultsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
-    colnames(resultsTable) <- vars
+    statisticsTable <- data.frame(matrix(ncol = length(vars), nrow = 0))
+    colnames(statisticsTable) <- vars
     # Results will be filled in below
 
     # Fill in initial table data from default values
@@ -375,7 +398,7 @@ server <- function(input, output, session) {
         tableData <- c(tableData, dataPoint)  # append tableData list
       }
 
-      # Insert table Data into resultsTable
+      # Insert table Data into statisticsTable
       # Calculate start and end values for data matrix 'row' within list of data
       rowEnd <- rowIndex * length(vars)
       rowStart <- rowEnd - length(vars) + 1
@@ -387,17 +410,17 @@ server <- function(input, output, session) {
       row.names(rowDf) <- var1
       names(rowDf) <- vars
       # Bind row df to results df using row bind
-      resultsTable <- rbind(resultsTable, rowDf)
+      statisticsTable <- rbind(statisticsTable, rowDf)
 
       rowIndex <- rowIndex + 1  # increment index
     }
 
     # Calculate column totals for table
-    resultsTable <- calcTotals(resultsTable)
+    statisticsTable <- calcTotals(statisticsTable)
     
-    return(resultsTable)
+    return(statisticsTable)
     
-  }  # end generateResults
+  }  # end generateSaatys
 
   # Beautify table for rendered output
   printTable <- function(table) {
@@ -407,12 +430,12 @@ server <- function(input, output, session) {
     colnames(table) <- vars
     rownames(table) <- c(vars, 'Totals')
     
-    output$resultsTable <- renderTable(table, rownames = T)
+    output$statisticsTable <- renderTable(table, rownames = T)
     
   }
 
   # Update Saaty's matrix
-  updateResults <- function(table, id, value) {
+  updateSaatys <- function(table, id, value) {
     # Get vars from last selected id
     vars <- id
     var1 <- strsplit(vars, split = '_')[[1]][1]  # Row name
@@ -426,21 +449,21 @@ server <- function(input, output, session) {
     # Determine sign of value
     if(value == 0) {
       # Update table values with 0s
-      table[i1, i2] <- 0
       table[i2, i1] <- 0
+      table[i1, i2] <- 0
     } else if(abs(value) == 1) {
       # Update table values with 1s
-      table[i1, i2] <- 1
       table[i2, i1] <- 1
+      table[i1, i2] <- 1
     } else if(value > 1) {
       # Update table values at specified index
-      table[i1, i2] <- value
-      table[i2, i1] <- inverse
+      table[i2, i1] <- value
+      table[i1, i2] <- inverse
     } else {
       # Reverse the order of column and row indices
       # Update table values at specified index
-      table[i1, i2] <- inverse
-      table[i2, i1] <- abs(value)  # Positive value
+      table[i2, i1] <- inverse
+      table[i1, i2] <- abs(value)  # Positive value
     }
 
     saatysTable <<- calcTotals(table)
@@ -451,7 +474,6 @@ server <- function(input, output, session) {
     # return(table)
   }
 
-  
   # Observers/Listeners
   # react to changes in dynamically generated slider Input's
   observeEvent(input$lastSelectId, {
@@ -461,9 +483,9 @@ server <- function(input, output, session) {
     # cat("Selection:", input[[input$lastSelectId]], "\n\n")
     
     # # Update Saaty's table
-    # saatysTable <- updateResults(saatysTable, id, value)
+    # saatysTable <- updateSaatys(saatysTable, id, value)
     # # UpdateUI
-    # output$resultsTable <- renderTable(
+    # output$statisticsTable <- renderTable(
     #   saatysTable,
     #   rownames = T
     # )
@@ -521,7 +543,7 @@ server <- function(input, output, session) {
       })
     } else {
       # Calculate initial Saaty's table
-      saatysTable <<- generateResults(vars)
+      saatysTable <<- generateSaatys(vars)
       # renderTabs(vars, saatysTable)
       # Generate and insert sliders into ui
       generateSliders(vars)
@@ -556,6 +578,12 @@ server <- function(input, output, session) {
       updateActionButton(session, "showSidebar", '<<<')
     }
   })
+
+  # Initial state
+  # Sliders tab user message
+  output$userMessage <- renderText(
+    '<p style="color:red">Please add a minimum of 2 component variables to the HOME tab. When you are ready click SUBMIT.</p>'
+  )
   
 }  # end server
 
@@ -637,12 +665,12 @@ shinyApp(ui = ui, server = server)
   #           # Generate and insert sliders into ui
   #           generateSliders(vars),
   #           # Insert results into UI
-  #           # output$resultsTable <- renderTable(
+  #           # output$statisticsTable <- renderTable(
   #           #   table,
   #           #   rownames = T
   #           # ),
-  #           insertUI(selector = '#resultsDiv',
-  #             ui = tableOutput('resultsTable')
+  #           insertUI(selector = '#statisticsDiv',
+  #             ui = tableOutput('statisticsTable')
   #           ),
   #           # Insert user message into UI
   #           output$resultsMessage <- renderUI({
