@@ -422,11 +422,12 @@ server <- function(input, output, session) {
         return(var)
       }))
       # Get row names as column for saatysTable
-      saatysTable <- saatysTable%>%
+      # Save Saaty's table as new var, without overwriting
+      saatysTable_temp <- saatysTable%>%
         rownames_to_column('Variable')
-      
+
       # Join tables
-      table <- saatysTable %>%
+      table <- saatysTable_temp %>%
         left_join(table)%>%
         column_to_rownames('Variable')
 
@@ -472,7 +473,6 @@ server <- function(input, output, session) {
 
     saatysTable <<- calcTotals(table)
 
-    printTable(saatysTable)
     calcEigen(saatysTable)
   }
 
@@ -529,7 +529,6 @@ server <- function(input, output, session) {
       # renderTabs(vars, saatysTable)
       # Generate and insert sliders into ui
       generateSliders(vars)
-      printTable(saatysTable)
       calcEigen(saatysTable)
       updateTabsetPanel(session, "tabs", 'Sliders')
       disable('submitVars')
