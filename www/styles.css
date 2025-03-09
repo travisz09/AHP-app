@@ -69,7 +69,8 @@
     margin-right: 1rem;         /* Add spacing between label and slider */
     align-self: center;         /* Vertical align in center of row */
     text-align: right;
-    flex-basis: 80px;          /* Target width for label */
+    width: 100px;          /* Target width for label */
+    word-wrap: break-word;
 }
 
 .label-right {
@@ -77,7 +78,8 @@
     align-self: center;         /* Vertical align in center of row */
     transform: translateY(-15px);  /* Vertical adjust for better label alignment */
     text-align: left;
-    flex-basis: 80px;          /* Target width for label */
+    width: 100px;          /* Target width for label */
+    word-wrap: break-word;
 }
 
 .irs {

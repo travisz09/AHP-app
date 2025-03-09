@@ -14,15 +14,8 @@
 library(shiny)
 library(shinyWidgets)
 library(shinyjs)
-# library(bslib)
 library(dplyr)
 library(tibble)
-
-myjs <- "
-$(document).on('change', '.dynamicSI input', function(){
-  Shiny.onInputChange('lastSelectId', this.id, {priority: 'event'});
-});
-"
 
 ui <- fluidPage(
   lang = 'en',
@@ -33,7 +26,6 @@ ui <- fluidPage(
   extendShinyjs(text = "shinyjs.refresh_page = function() { location.reload(); }", functions = "refresh_page"),
   # Page head
   tags$head(
-    tags$script(HTML(myjs)),
     # Link to css
     tags$link(
       rel = 'stylesheet', 
@@ -137,8 +129,6 @@ ui <- fluidPage(
         # Main panel
         mainPanel(
           column(width = 6,
-            # # Button to control sidebar behavior
-            # actionButton("showSidebar", "<<<", class = 'btn-info'),
             # Main Panel Header
             div(class = 'center-text',
               h2('Relative Importance'),
@@ -151,12 +141,7 @@ ui <- fluidPage(
               hr(),  # line break
               # Divs for dynamically rendered UI
               tags$div(id = 'sliders', class = 'dynamicSI'),
-              # tags$div(id = 'statisticsDiv', 
-              #   class = 'center-text',
-              #   h4('Statistics Table'),  # Table Header
-              #   tableOutput('statisticsTable')
-              # ),
-              htmlOutput('userMessage'),
+             htmlOutput('userMessage'),
             ),
             tags$div(id = 'resultsDiv', 
               class = 'center-text',
@@ -217,7 +202,6 @@ server <- function(input, output, session) {
     # Reset table totals (if applicable)
     if('Total' %in% row.names(table)) {
       table <- table[!(row.names(table) %in% c('Total')), ]
-      # print(T)
     }
     totals <- c()
     for (var in vars) {
@@ -324,17 +308,15 @@ server <- function(input, output, session) {
   generateSliders <- function(vars) {
     # Generate x number of pwc sliders based on y user-generated inputs
     # x = (y * (y-1))/2
-      # where:
-        # x = number of sliders
-        # y = number of user-generated inputs
-        # and variable order does not matter
+    #   where:
+    #     x = number of sliders
+    #     y = number of user-generated inputs
+    #     and variable order does not matter
     for(i in c(1:length(vars[-1]))) {
       var1 = vars[i]
-      # print(var1())
+      
       for(j in c(i:length(vars[-1]))) {
         var2 = vars[j+1]
-        # print(var2())
-        # print(paste(var1(), var2(), sep = '_'))
         
         insertUI(selector = '#sliders', 
           ui = div(class = 'label-left',
@@ -362,7 +344,6 @@ server <- function(input, output, session) {
     lapply(sliders(), function (s) {
       observeEvent(input[[s]], {
         val(input[[s]])
-        # print(val())
         updateSaatys(saatysTable, s, val())
       })
     }) 
@@ -432,7 +413,7 @@ server <- function(input, output, session) {
 
       output$resultsTable <- renderTable(table, rownames = F)
     } else {
-      # Abbreviate vars
+      # Abbreviate vars (shorter)
       vars <- names(saatysTable)
       abbr <- unlist(lapply(vars, function(var) {
         if(nchar(var) > 4) {
@@ -455,14 +436,6 @@ server <- function(input, output, session) {
       
       output$resultsTable <- renderTable(table, rownames = T)
     }
-    # # Abbreviate vars for table output
-    # vars = lapply(names(table), substr, start = 1, stop = 4)
-    
-    # colnames(table) <- vars
-    # rownames(table) <- c(vars, 'Total')
-    
-    # output$statisticsTable <- renderTable(table, rownames = T)
-    
   }
 
   # Update Saaty's matrix
@@ -501,31 +474,9 @@ server <- function(input, output, session) {
 
     printTable(saatysTable)
     calcEigen(saatysTable)
-    
-    # return(table)
   }
 
   # Observers/Listeners
-  # react to changes in dynamically generated slider Input's
-  observeEvent(input$lastSelectId, {
-    
-    # Print statements for debugging
-    # cat("lastSelectId:", input$lastSelectId, "\n")
-    # cat("Selection:", input[[input$lastSelectId]], "\n\n")
-    
-    # # Update Saaty's table
-    # saatysTable <- updateSaatys(saatysTable, id, value)
-    # # UpdateUI
-    # output$statisticsTable <- renderTable(
-    #   saatysTable,
-    #   rownames = T
-    # )
-    # output$resultsMessage <- renderUI({
-    #   HTML(calcEigen(table))
-    # })
-
-  })  
-
   # Add Variable Button
   observeEvent(input$addRow, {
     clearWarnings(2)  # Clear warning 2, if any
@@ -624,6 +575,7 @@ server <- function(input, output, session) {
         write.csv(data, file, row.names = T)
       }
     )
+  
   # Initial state
   # Sliders tab user message
   output$userMessage <- renderText(
@@ -634,120 +586,3 @@ server <- function(input, output, session) {
 
 # deploy app
 shinyApp(ui = ui, server = server)
-
-
-
-# GRAVEYARD
-# # Render sliders tab function
-  # renderTabs <- function(vars, table) {
-  #   # Create Sliders tab on the fly based on user inputs
-  #   # Create new tab panel named 'Sliders'
-  #   insertTab(inputId = 'tabs',
-  #     tabPanel('Sliders',
-  #       # Tab Header
-  #       div(class = 'center-text',
-  #         h3('Variable Pair Wise Comparison')
-  #       ),
-  #       div(
-  #         h6('Adjust the relative importance of each variable pair.')
-  #       ),
-  #       # Sidebar layout
-  #       sidebarLayout(
-  #         sidebarPanel(id = 'Sidebar',
-  #           # Sidebar Header
-  #           div(class = 'center-text',
-  #             h2('Survey Explanation')
-  #           ),
-  #           hr(),  # line break
-  #           # Sidebar content
-  #           div(class = 'center-text',
-  #             # Saaty's absolute numbers figure, with title and caption
-  #             strong("Saaty's Scale of Absolute Numbers")),
-  #             img(src='SaatyScale.png', width = '100%'),
-  #             em('Image from Aloui et al. (2024) Fig. A1, and may be subject to copyright. Please do not redistribute!'),
-  #             hr(),  # line break
-  #             # User instructions (HTML)
-  #             HTML({
-  #               "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
-  #               <br><br>
-  #               Special Values:<br>
-  #               &ensp;<b>1 = -1 = Variables of equal importance.</b><br>
-  #               &ensp;<b>0 = No opinion/NA</b>
-  #               <br><br>
-  #               When finished, view and export your results in the next tab."
-  #             }),
-  #         ),  # end sidebarPanel
-
-  #         # Main panel
-  #         mainPanel(
-  #           # Button to control sidebar behavior
-  #           actionButton("showSidebar", "<<<"),
-  #           # Main Panel Header
-  #           div(class = 'center-text',
-  #             h2('Relative Importance'),
-  #             # Stylized subheading
-  #             # Modified table
-  #             div(class = 'table',
-  #               div(class = 'table-row',
-  #                 # Table text
-  #                 div(class = 'text-left', HTML('Variable A<br>more important')),
-  #                 div(class = 'text-right', HTML('Variable B<br>more important')),
-  #               ),
-  #             ),
-  #           ),
-  #           # Hacked text arrows
-  #           # See styles.css .arrow{} for div possitioning etc.
-  #           div(class = 'arrow', '\U21A4|\U21A6'),
-
-  #           # Divs for dynamically rendered UI
-  #           tags$div(id = 'sliders', class = 'dynamicSI'),
-  #           tags$div(id = 'resultsDiv', 
-  #             class = 'center-text',
-  #             h4('Results Table'),  # Table Header
-  #           ),
-             
-  #           # Dynamic UI created on the fly by server
-  #           # Generate and insert sliders into ui
-  #           generateSliders(vars),
-  #           # Insert results into UI
-  #           # output$statisticsTable <- renderTable(
-  #           #   table,
-  #           #   rownames = T
-  #           # ),
-  #           insertUI(selector = '#statisticsDiv',
-  #             ui = tableOutput('statisticsTable')
-  #           ),
-  #           # Insert user message into UI
-  #           output$resultsMessage <- renderUI({
-  #             HTML(calcEigen(table))
-  #           }),
-            
-
-  #         )
-  #       )
-  #     )
-  #   )
-  # }
-
-  # # JS for sidebar behavior
-  # observeEvent(input$showSidebar, {
-  #   shinyjs::toggle(id = "Sidebar")
-
-  #   js_maintab <- paste0('$("div[role=',"'main'",']")')
-    
-  #   runjs(paste0('
-  #         width_percent = parseFloat(',js_maintab,'.css("width")) / parseFloat(',js_maintab,'.parent().css("width"));
-  #         if (width_percent == 1){
-  #           ',js_maintab,'.css("width","");
-  #         } else {
-  #           ',js_maintab,'.css("width","100%");
-  #         }
-  #         '))
-    
-  #   # Update button text
-  #   if (input$showSidebar %% 2 != 0) {
-  #     updateActionButton(session, "showSidebar", '>>>')
-  #   } else {
-  #     updateActionButton(session, "showSidebar", '<<<')
-  #   }
-  # })
