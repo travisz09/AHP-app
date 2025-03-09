@@ -2,12 +2,14 @@
 
 .center-title {
     text-align: center;
-    max-width: 1200px;
+    max-width: 500px;
+    flex-basis: 500px;          /* Target width for slider */
 }
 
 .center-text {
     text-align: center;
-    /* max-width: 600px; */
+    max-width: 500px;
+    flex-basis: 500px;          /* Target width for slider */
 }
 
 .warning-text {
@@ -22,37 +24,38 @@
     font-weight: bold;
 }
 
-.table {
-    margin: auto;
-    width: 350px;
-    display: table;
-    transform: translateX(-10px)
-}
-
-.table-row {
-    width: 350px;
-    display: table-row;
-    text-align: center;
+.subhead-sliders {
+    position: relative;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    width: auto;
 }
 
 .text-left {
-    display: table-cell;
+    /* display: table-cell; */
+    position: relative;
     text-align: left;
-    /* max-width: 100px; */
+    width: 150px;
+    align-self: left;
 }
 
 .text-right {
-    display: table-cell;
+    /* display: table-cell; */
+    position: relative;
     text-align: right;
-    /* max-width: 100px; */
+    width: 150px;
+    align-self: right;
 }
 
 .arrow {
+    position: relative;
     font-size: 30px;
     text-align: center;
-    max-width: 580px;
+    width: 75px;
     align-self: center;
-    transform: translateY(-50px);
+    /* transform: translateY(-50px); */
 }
 
 .label-left .form-group {
@@ -71,15 +74,30 @@
 
 .label-right {
     margin-left: -1rem;         /* Add spacing between label and slider */
-    align-self: top;         /* Vertical align in center of row */
+    align-self: center;         /* Vertical align in center of row */
+    transform: translateY(-15px);  /* Vertical adjust for better label alignment */
     text-align: left;
     flex-basis: 80px;          /* Target width for label */
 }
 
 .irs {
+    text-align: center;
     display: flex;              /* Use flexbox for positioning children */
     flex-direction: row;        /* Place children on a row (default) */
     width: 100%;
     max-width: 500px;
     flex-basis: 500px;          /* Target width for slider */
+}
+
+.table {
+    margin: auto;
+    width: 350px;
+    display: table;
+    transform: translateX(-10px)
+}
+
+.table-row {
+    width: 350px;
+    display: table-row;
+    text-align: center;
 }

@@ -55,60 +55,59 @@ ui <- fluidPage(
     type = 'tabs',
     id = 'tabs',
     tabPanel(title = 'Home',
-      # Header
-      div(class = 'center-text',
-        h3('Component Variables')
-      ),
-      div(
-        h6('Add the constituent factors of your decision here.')
-      ), 
+      column(width = 4,  # column width
+        # Header
+        div(class = 'center-text',
+          h3('Component Variables'),
+          h6('Add the constituent factors of your decision here.')
+        ),
 
-      # Initial text input (minimum 2 variables)
-      textInput(inputId = "var1", 
-        label = 'Variable 1', 
-        value = "", 
-        width = NULL, 
-        placeholder = 'e.g. Distance'
-      ),
-      textInput(inputId = "var2", 
-        label = 'Variable 2', 
-        value = "", 
-        width = NULL, 
-        placeholder = 'e.g. Time'
-      ),
+        # Initial text input (minimum 2 variables)
+        textInput(inputId = "var1", 
+          label = 'Variable 1', 
+          value = "", 
+          width = NULL, 
+          placeholder = 'e.g. Distance'
+        ),
+        textInput(inputId = "var2", 
+          label = 'Variable 2', 
+          value = "", 
+          width = NULL, 
+          placeholder = 'e.g. Time'
+        ),
 
-      div(
-        id = 'vars_ui'
-      ),
+        div(
+          id = 'vars_ui'
+        ),
 
-      # Action button to generate more rows
-      actionButton(inputId = 'addRow',
-        label = 'Add Variable',
-        class = "btn-primary"
-      ),
-      # Action Button to reset
-      actionButton(inputId = 'reset',
-        label = 'Reset',
-        class = "btn-danger"
-      ),
-      # Action Button to submit vars for pwc
-      actionButton(inputId = 'submitVars',
-        label = 'Submit',
-        class = 'btn-success'
-      ),
+        # Action button to generate more rows
+        actionButton(inputId = 'addRow',
+          label = 'Add Variable',
+          class = "btn-primary"
+        ),
+        # Action Button to reset
+        actionButton(inputId = 'reset',
+          label = 'Reset',
+          class = "btn-danger"
+        ),
+        # Action Button to submit vars for pwc
+        actionButton(inputId = 'submitVars',
+          label = 'Submit',
+          class = 'btn-success'
+        ),
 
-      # User messages
-      uiOutput(outputId = 'warning2')
-    ),  # end tabPanel (Home)
+        # User messages
+        uiOutput(outputId = 'warning2')
+      )  # end tabPanel (Home)
+    ),
 
     tabPanel(title = "Sliders",
       # Tab Header
       div(class = 'center-text',
-        h3('Variable Pair Wise Comparison')
-      ),
-      div(
+        h3('Variable Pair Wise Comparison'),
         h6('Adjust the relative importance of each variable pair.')
       ),
+      
       # Sidebar layout
       sidebarLayout(
         sidebarPanel(id = 'Sidebar',
@@ -122,9 +121,7 @@ ui <- fluidPage(
             # Saaty's absolute numbers figure, with title and caption
             strong("Saaty's Scale of Absolute Numbers")
           ),
-          img(src='SaatyScale.png', width = '100%'),
-          em('Image from Aloui et al. (2024) Fig. A1, and may be subject to copyright. Please do not redistribute!'),
-          hr(),  # line break
+          img(src='SaatyScale2.png', width = '100%'),
           # User instructions (HTML)
           HTML({
             "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
@@ -133,44 +130,44 @@ ui <- fluidPage(
             &ensp;<b>1 = -1 = Variables of equal importance.</b><br>
             &ensp;<b>0 = No opinion/NA</b>
             <br><br>
-            When finished, view and export your results in the next tab."
+            When finished, view and export your results."
           }),
         ),  # end sidebarPanel
 
         # Main panel
         mainPanel(
-          # Button to control sidebar behavior
-          actionButton("showSidebar", "<<<"),
-          # Main Panel Header
-          div(class = 'center-text',
-            h2('Relative Importance'),
-            # Stylized subheading
-            # Modified table
-            div(class = 'table',
-              div(class = 'table-row',
-                # Table text
+          column(width = 6,
+            # # Button to control sidebar behavior
+            # actionButton("showSidebar", "<<<", class = 'btn-info'),
+            # Main Panel Header
+            div(class = 'center-text',
+              h2('Relative Importance'),
+              # Stylized subheading
+              div(class = 'subhead-sliders',
                 div(class = 'text-left', HTML('Variable A<br>more important')),
-                div(class = 'text-right', HTML('Variable B<br>more important')),
+                div(class = 'arrow', '\U21A4|\U21A6'),
+                div(class = 'text-right', HTML('Variable B<br>more important')),  
               ),
+              hr(),  # line break
+              # Divs for dynamically rendered UI
+              tags$div(id = 'sliders', class = 'dynamicSI'),
+              # tags$div(id = 'statisticsDiv', 
+              #   class = 'center-text',
+              #   h4('Statistics Table'),  # Table Header
+              #   tableOutput('statisticsTable')
+              # ),
+              htmlOutput('userMessage'),
             ),
-          ),
-          # Hacked text arrows
-          # See styles.css .arrow{} for div possitioning etc.
-          div(class = 'arrow', '\U21A4|\U21A6'),
-
-          # Divs for dynamically rendered UI
-          tags$div(id = 'sliders', class = 'dynamicSI'),
-          tags$div(id = 'statisticsDiv', 
-            class = 'center-text',
-            h4('Statistics Table'),  # Table Header
-            tableOutput('statisticsTable')
-          ),
-          htmlOutput('userMessage'),
-          tags$div(id = 'resultsDiv', 
-            class = 'center-text',
-            h4('Results'),  # Table Header
-            tableOutput('resultsTable')
-          ),
+            tags$div(id = 'resultsDiv', 
+              class = 'center-text',
+              h4('Results'),  # Table Header
+              tableOutput('resultsTable')
+            ),
+            div(id = 'resultsButtons', class = 'center-text',
+              actionButton('toggleEigen', 'Show Eigenvectors', class = 'btn-info'),
+              downloadButton('download', 'Download Results', class = 'btn-success')
+            )
+          )
         )
       )
     )  
@@ -189,8 +186,10 @@ server <- function(input, output, session) {
   val <- reactiveVal()
   # Saaty's table (df)
   saatysTable <- data.frame()
-  # # Results table (df)
-  # resultsTable <- data.frame()
+  # Results table (df)
+  resultsTable <- data.frame()
+  # Toggle eigenvectors
+  eigenToggle <- reactiveVal(0)  # 0 = off, 1 = on
 
   # Functions ------------------------------
   # Add Variable Function 
@@ -216,8 +215,8 @@ server <- function(input, output, session) {
     # Get vars from table
     vars <- names(table)
     # Reset table totals (if applicable)
-    if('Totals' %in% row.names(table)) {
-      table <- table[!(row.names(table) %in% c('Totals')), ]
+    if('Total' %in% row.names(table)) {
+      table <- table[!(row.names(table) %in% c('Total')), ]
       # print(T)
     }
     totals <- c()
@@ -236,7 +235,7 @@ server <- function(input, output, session) {
 
     # Update names of totals df
     names(totals) <- vars
-    row.names(totals) <- 'Totals'
+    row.names(totals) <- 'Total'
     # bind totals to bottom of table
     table <-rbind(table, totals)
 
@@ -248,9 +247,9 @@ server <- function(input, output, session) {
     # Get list of vars from table
     vars = names(table)
     # Save column totals
-    totals <- sapply(table['Totals', ], function(x) eval(parse(text = as.character(x))))
+    totals <- sapply(table['Total', ], function(x) eval(parse(text = as.character(x))))
     # Drop totals from table
-    eigenTable <- table[!(row.names(table) %in% c('Totals')), ]
+    eigenTable <- table[!(row.names(table) %in% c('Total')), ]
 
     for (name in names(totals)) {
       total = as.numeric(totals[name])  # get named total value
@@ -263,14 +262,10 @@ server <- function(input, output, session) {
     # Calculate weights as row wise means of eigen table
     weights <- rowMeans(eigenTable, na.rm = T)
     totalWeights <- sum(weights)
-    resultsTable <- data.frame(
+    resultsTable <<- data.frame(
       Variable = c(vars, 'Total'),
       Weight = c(weights, totalWeights)
     )
-    saatysTable <- saatysTable%>%
-      rownames_to_column('Variable')%>%
-      left_join(resultsTable)%>%
-      column_to_rownames('Variable')
 
     # Calculate Consistency Index
     ciTable <- as.data.frame(list(
@@ -321,7 +316,7 @@ server <- function(input, output, session) {
     }
 
     output$userMessage <- renderText(statisticsText)
-    output$resultsTable <- renderTable(resultsTable)
+    printTable(resultsTable)
 
   }
 
@@ -424,13 +419,49 @@ server <- function(input, output, session) {
 
   # Beautify table for rendered output
   printTable <- function(table) {
-    # Abbreviate vars for table output
-    vars = lapply(names(table), substr, start = 1, stop = 4)
+    if (eigenToggle() == 0) {
+      # Eigenvectors off
+      # Abbreviate vars
+      abbr <- unlist(lapply(table$Variable, function(var) {
+        if(nchar(var) > 9) {
+          var = paste0(substr(var, 1, 9), '.')
+        } 
+        return(var)
+      }))
+      table$Variable <- abbr  # Insert abbreviated vars
+
+      output$resultsTable <- renderTable(table, rownames = F)
+    } else {
+      # Abbreviate vars
+      vars <- names(saatysTable)
+      abbr <- unlist(lapply(vars, function(var) {
+        if(nchar(var) > 4) {
+          var = paste0(substr(var, 1, 4), '.')
+        } 
+        return(var)
+      }))
+      # Get row names as column for saatysTable
+      saatysTable <- saatysTable%>%
+        rownames_to_column('Variable')
+      
+      # Join tables
+      table <- saatysTable %>%
+        left_join(table)%>%
+        column_to_rownames('Variable')
+
+      # Use abbreviated column and row names
+      names(table) <- c(abbr, 'Weight')
+      row.names(table) <-c(abbr, 'Total')
+      
+      output$resultsTable <- renderTable(table, rownames = T)
+    }
+    # # Abbreviate vars for table output
+    # vars = lapply(names(table), substr, start = 1, stop = 4)
     
-    colnames(table) <- vars
-    rownames(table) <- c(vars, 'Totals')
+    # colnames(table) <- vars
+    # rownames(table) <- c(vars, 'Total')
     
-    output$statisticsTable <- renderTable(table, rownames = T)
+    # output$statisticsTable <- renderTable(table, rownames = T)
     
   }
 
@@ -556,29 +587,43 @@ server <- function(input, output, session) {
     }
   })
 
-  # JS for sidebar behavior
-  observeEvent(input$showSidebar, {
-    shinyjs::toggle(id = "Sidebar")
-
-    js_maintab <- paste0('$("div[role=',"'main'",']")')
-    
-    runjs(paste0('
-          width_percent = parseFloat(',js_maintab,'.css("width")) / parseFloat(',js_maintab,'.parent().css("width"));
-          if (width_percent == 1){
-            ',js_maintab,'.css("width","");
-          } else {
-            ',js_maintab,'.css("width","100%");
-          }
-          '))
-    
-    # Update button text
-    if (input$showSidebar %% 2 != 0) {
-      updateActionButton(session, "showSidebar", '>>>')
+  # Show eigenvectors in results table
+  observeEvent(input$toggleEigen, {
+    # Update toggle value
+    if(eigenToggle() == 0) {
+      eigenToggle(1)
     } else {
-      updateActionButton(session, "showSidebar", '<<<')
+      eigenToggle(0)
     }
+
+    # Print results table
+    printTable(resultsTable)
   })
 
+  # Download Data
+  output$download <- downloadHandler(
+      filename = function() {
+        paste0('AHP-data-', Sys.Date(), '.csv', sep='')
+      },
+      content = function(file) {
+        for (name in names(saatysTable)) {
+          # Parse table column as numeric
+          vect <- sapply(saatysTable[ , name], function(x) eval(parse(text = as.character(x))))
+          saatysTable[ , name] <- vect  # update eigenTable
+        }
+        # Bundle data
+        # Get row names as column for saatysTable
+        saatysTable <- saatysTable%>%
+          rownames_to_column('Variable')
+        
+        # Join tables
+        data <- saatysTable %>%
+          left_join(resultsTable)%>%
+          column_to_rownames('Variable')
+
+        write.csv(data, file, row.names = T)
+      }
+    )
   # Initial state
   # Sliders tab user message
   output$userMessage <- renderText(
@@ -683,3 +728,26 @@ shinyApp(ui = ui, server = server)
   #     )
   #   )
   # }
+
+  # # JS for sidebar behavior
+  # observeEvent(input$showSidebar, {
+  #   shinyjs::toggle(id = "Sidebar")
+
+  #   js_maintab <- paste0('$("div[role=',"'main'",']")')
+    
+  #   runjs(paste0('
+  #         width_percent = parseFloat(',js_maintab,'.css("width")) / parseFloat(',js_maintab,'.parent().css("width"));
+  #         if (width_percent == 1){
+  #           ',js_maintab,'.css("width","");
+  #         } else {
+  #           ',js_maintab,'.css("width","100%");
+  #         }
+  #         '))
+    
+  #   # Update button text
+  #   if (input$showSidebar %% 2 != 0) {
+  #     updateActionButton(session, "showSidebar", '>>>')
+  #   } else {
+  #     updateActionButton(session, "showSidebar", '<<<')
+  #   }
+  # })
