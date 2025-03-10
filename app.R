@@ -34,11 +34,11 @@ ui <- fluidPage(
     ),  # end tags$link (css)
     # SEO
     # Description
-    tags$meta(name="description", content="Analytical Hierarchy Process for Muiti Criterion Decision Making. Input two or more component variables and adjust their relative importance using the sliders to generate a weights matrix for use in statistical decision making."),
+    tags$meta(name="description", content="Analytical Hierarchy Process Calculator for Muiti Criterion Decision Making. Input two or more component variables and adjust their relative importance using the sliders to generate a weights matrix for use in statistical decision making."),
     # Keywords
-    tags$meta(name="keywords", content="Analytical Hierarchy Process, AHP, Multi-Criterion, Decision-Making, MCDM, Variables, Weights, Matrix, Eigenvectors, Saaty, Shiny, R, Suitabiliuty Analysis, GIS Tools, Pair Wise Comparison, Saaty's Scale, Absolute Numbers"),
+    tags$meta(name="keywords", content="Analytical Hierarchy Process, AHP, Multi-Criterion, Decision-Making, MCDM, Variables, Weights, Matrix, Eigenvectors, Saaty, Shiny, R, Suitabiliuty Analysis, GIS Tools, Pair Wise Comparison, Saaty's Scale, Absolute Numbers, Calculator"),
     # Structured data
-    tags$script('{"@context": "https://travis-zalesky.shinyapps.io/ahp-app/", "@type": "WebApplication", "name": "Analytical Hierarchy Process for Muiti Criterion Decision Making"}', type = "application/ld+json")
+    tags$script('{"@context": "https://travis-zalesky.shinyapps.io/ahp-app/", "@type": "WebApplication", "name": "Analytical Hierarchy Process Calculator for Muiti Criterion Decision Making"}', type = "application/ld+json")
   ),  # end tags$head (page head)
 
   # Application title
