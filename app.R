@@ -31,7 +31,14 @@ ui <- fluidPage(
       rel = 'stylesheet', 
       type = 'text/css', 
       href = 'styles.css'  # implied www/ filepath
-    )  # end tags$link (css)
+    ),  # end tags$link (css)
+    # SEO
+    # Description
+    tags$meta(name="description", content="Analytical Hierarchy Process for Muiti Criterion Decision Making. Input two or more component variables and adjust their relative importance using the sliders to generate a weights matrix for use in statistical decision making."),
+    # Keywords
+    tags$meta(name="keywords", content="Analytical Hierarchy Process, AHP, Multi-Criterion, Decision-Making, MCDM, Variables, Weights, Matrix, Eigenvectors, Saaty, Shiny, R, Suitabiliuty Analysis, GIS Tools, Pair Wise Comparison, Saaty's Scale, Absolute Numbers"),
+    # Structured data
+    tags$script('{"@context": "https://travis-zalesky.shinyapps.io/ahp-app/", "@type": "WebApplication", "name": "Analytical Hierarchy Process for Muiti Criterion Decision Making"}', type = "application/ld+json")
   ),  # end tags$head (page head)
 
   # Application title
@@ -113,7 +120,9 @@ ui <- fluidPage(
             # Saaty's absolute numbers figure, with title and caption
             strong("Saaty's Scale of Absolute Numbers")
           ),
-          img(src='SaatyScale2.png', width = '100%'),
+          img(src='SaatyScale2.png', width = '100%', 
+            alt = "Saaty's Scale of Absolute Numbers pair wise comparison variable relative importance."  
+          ),
           # User instructions (HTML)
           HTML({
             "Using Saaty's Scale as a reference, adjust the sliders for each variable pair-wise comparison to your preferred value, in the direction of the most important variable.
